@@ -2,6 +2,7 @@ import numpy as np
 import cupy as cp # 4.9x speedup
 from scipy.linalg import eigvalsh_tridiagonal
 from tqdm import trange
+from studies import ManyBodyLevels
 
 rng = np.random.default_rng()
 
@@ -62,6 +63,20 @@ class LatticeSampler:
 	def size(self):
 		""" Number of eigenvalues """
 		return self.n ** self.d
+
+class OganesyanHuseSampler(LatticeSampler):
+	"""
+	Generate a matrix representation of a 1-dimensional lattice with nearest- and second-neighbour hopping.
+	Similar to the Hamiltonian in 10.1103/PhysRevB.75.155111 (but using oscillators and V=0)
+	"""
+	def __init__(self, n, W, t, w0=10, torus=True):
+		self.d = 1
+		self.n = n
+		self.W = W
+		self.t = t
+		self.w0 = w0
+		self.torus = torus
+		raise NotImplementedError("OganesyanHuseSampler not implemented yet")
 	
 
 class Betasampler:
