@@ -3,6 +3,8 @@ import cupy as cp # 4.9x speedup
 from scipy.linalg import eigvalsh_tridiagonal
 from tqdm import trange
 from studies import ManyBodyLevels
+import operators
+
 
 rng = np.random.default_rng()
 
@@ -66,17 +68,37 @@ class LatticeSampler:
 
 class OganesyanHuseSampler(LatticeSampler):
 	"""
-	Generate a matrix representation of a 1-dimensional lattice with nearest- and second-neighbour hopping.
-	Similar to the Hamiltonian in 10.1103/PhysRevB.75.155111 (but using oscillators and V=0)
+	Generate a matrix representation of a 1-dimensional lattice with nearest- and second-neighbour hopping,
+	as described in 10.1103/PhysRevB.75.155111
 	"""
-	def __init__(self, n, W, t, w0=10, torus=True):
+	def __init__(self, n, W, t=1, V=2, e=None, torus=True):
 		self.d = 1
 		self.n = n
 		self.W = W
 		self.t = t
-		self.w0 = w0
+        self.V =  V
 		self.torus = torus
-		raise NotImplementedError("OganesyanHuseSampler not implemented yet")
+        if e:
+            self.e = e
+        else:
+            self.e = n // 2
+
+    def sample(self):
+        """ Sample a matrix from the ensemble. """
+        w = rng.normal(scale=self.W, size=(self.n,))
+        systemspec = operators.SystemSpec(self.n, self.e)
+        mat = np.zeros((systemspec.N, systemspec.N))
+        for i in range(systemspec.n):
+            i1 = (i+1) % systemspec.n
+            i2 = (i+2) % systemspec.n
+
+            ni = operators.exchange(self.n-1, self.n-1, systemspec)
+            ni1 = operators.exchange(0, 0, systemspec)
+            mat = w[-1] * ni
+            mat += self.V * (ni - 0.5) * (ni1 - 0.5)
+            mat += operators.exchange(i, i1, systemspec) + operators.exchange(i1, i, systemspec) + operators.exchange(i, i2, systemspec) + operators.exchange(i2, i, systemspec)
+        return mat
+
 	
 
 class Betasampler:
