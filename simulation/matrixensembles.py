@@ -4,7 +4,8 @@ from scipy.linalg import eigvalsh_tridiagonal
 from tqdm import trange
 from studies import ManyBodyLevels
 import operators
-
+from typing import Union
+from functools import cache
 
 rng = np.random.default_rng()
 
@@ -59,6 +60,9 @@ class LatticeSampler:
         """ Eigenvalues of a matrix, sorted in ascending order """
         return cp.linalg.eigvalsh(mat)
 
+    def eig(self, mat):
+        return cp.linalg.eigh(mat)
+
     @property
     def size(self):
         """ Number of eigenvalues """
@@ -108,8 +112,92 @@ class OganesyanHuseSampler:
         return operators.SystemSpec(self.n, self.e).N
     
 
+class CrossoverSampler:
+    """
+    Similar to OganesyanHuseSampler with V=0, but for bosons
+    """
+    def __init__(self, n, W, t=1, V=2, e=None):
+        self.d = 1
+        self.n = n
+        self.W = W
+        self.t = t
+        self.V =  V
+        if e:
+            self.e = e
+        else:
+            self.e = n // 2
+
+    def sample(self):
+        """ Sample a matrix from the ensemble. """
+        w = rng.normal(scale=self.W, size=(self.n,))
+        mat = cp.diag(w)
+        for i in range(self.n):
+            i1 = (i+1) % self.n
+            i2 = (i+2) % self.n
+            mat[i, i1] = self.t
+            mat[i1, i] = self.t
+            mat[i, i2] = self.t
+            mat[i2, i] = self.t
+        return mat
+    
+    def eigenvalues(self, mat):
+        """ Eigenvalues of a matrix, sorted in ascending order """
+        return cp.sort(cp.linalg.eigvalsh(mat))
+    
+    @property
+    def size(self):
+        """ Number of eigenvalues """
+        return operators.SystemSpec(self.n, self.e).N
+
+
+
+class OODSampler:
+    """
+    Generate a matrix representation of a 1-dimensional lattice with out of diagonal terms
+    """
+    def __init__(self, n, W, t=1, V=2, e=None):
+        self.d = 1
+        self.n = n
+        self.W = W
+        self.t = t
+        self.V =  V
+        if e:
+            self.e = e
+        else:
+            self.e = n // 2
+
+    def sample(self):
+        """ Sample a matrix from the ensemble. """
+        w = rng.normal(scale=self.W, size=(self.n,))
+        systemspec = operators.SystemSpec(self.n, self.e)
+        mat = cp.zeros((systemspec.N, systemspec.N))
+        for i in range(systemspec.n):
+            i1 = (i+1) % systemspec.n
+            ni = operators.exchange(i, i, systemspec)
+            I = cp.identity(systemspec.N)
+            mat += w[i] * ni
+            mat += self.t * operators.exchange(i, i1, systemspec) + operators.exchange(i1, i, systemspec)
+        # add 2 particle out of diagonal terms
+        r = self.V * cp.random.randn(systemspec.N, systemspec.N)
+        # make it symmetric
+        r = (r + r.T) / np.sqrt(2)
+        # make the diagonal zero
+        r -= cp.diag(cp.diag(r))
+        return mat + r
+    
+    def eigenvalues(self, mat):
+        """ Eigenvalues of a matrix, sorted in ascending order """
+        return cp.linalg.eigvalsh(mat).sort()
+    
+    @property
+    def size(self):
+        """ Number of eigenvalues """
+        return operators.SystemSpec(self.n, self.e).N
+
+
 class Betasampler:
-    """ Sampler for the beta-Hermite ensemble with tridiagonal matrices from Dumitriu, Edelman (2018). """
+    """ Sampler for the beta-Hermite ensemble with tridiagonal matrices
+        from Dumitriu, Edelman https://doi.org/10.1063/1.1507823 """
     def __init__(self, N, beta=1):
         self.N = N
         self.beta = beta
@@ -133,8 +221,9 @@ class MatrixStats:
     def __init__(self, sampler):
         self.sampler = sampler
         self.eigenvalues_ = []
+        self.eigenvectors_ = []
 
-    def collect(self, n_points=None, n_realizations=None):
+    def collect(self, n_points : Union[int, None] = None, n_realizations=None, eigenvectors=False):
         """ Collect samples from the ensemble """
         if n_realizations is not None and n_points is not None:
             raise ValueError("Only one of n_points and n_realizations can be specified")
@@ -146,12 +235,33 @@ class MatrixStats:
             n_samples = n_realizations
         else:
             n_samples = max(n_points // self.sampler.size, 1)
-        for i in trange(n_samples):
-            self.eigenvalues_.append(self.sampler.eigenvalues(self.sampler.sample()))
+        for _ in trange(n_samples):
+            if eigenvectors:
+                w, v = self.sampler.eig(self.sampler.sample())
+                self.eigenvalues_.append(w)
+                self.eigenvectors_.append(v)
+            else:
+                self.eigenvalues_.append(self.sampler.eigenvalues(self.sampler.sample()))
 
     def eigenvalues(self):
         """ Calculate the eigenvalue distribution of the matrices sampled from the ensemble with collect() """
-        return cp.array(self.eigenvalues_).get()
+        if type(self.eigenvalues_) == list:
+            if type(self.eigenvalues_[0]) == np.ndarray:
+                return np.array(self.eigenvalues_)
+            elif type(self.eigenvalues_[0]) == cp.ndarray:
+                return cp.asnumpy(cp.array(self.eigenvalues_))
+        elif type(self.eigenvalues_) == cp.ndarray:
+            return cp.asnumpy(self.eigenvalues_)
+        return self.eigenvalues_
+
+    def eigenvectors(self):
+        if len(self.eigenvectors_) != len(self.eigenvalues_):
+            raise ValueError("No eigenvectors collected")
+        if type(self.eigenvectors_) == list and type(self.eigenvectors_[0]) == np.ndarray:
+            return np.stack(self.eigenvectors_)
+        if type(self.eigenvectors_) == list and type(self.eigenvectors_[0]) == cp.ndarray:
+            return cp.asnumpy(cp.stack(self.eigenvectors_))
+        return self.eigenvectors_
     
     def spacings(self, selector=None):
         """ Calculate the spacing distribution of the matrices sampled from the ensemble with collect() """
@@ -166,10 +276,12 @@ class MatrixStats:
             raise ValueError("Eigenvalues are not sorted")
         return res
 
+    @cache
     def s(self, selector=None):
         spacings_ = self.spacings(selector)
         return spacings_ / np.mean(spacings_)
     
+    @cache
     def d2correlations(self, selector=None):
         """ Calculate the correlations between adjacent spacings
             as in Oganesyan and Huse
@@ -178,8 +290,8 @@ class MatrixStats:
         dn, dnm1 = delta[:, :-1], delta[:, 1:]
         r = np.minimum(dn, dnm1) / np.maximum(dn, dnm1)
         return r
-        return r[~np.isnan(r)]
-    
+
+
 def PalHuseSelector(eigenvalues):
     """ Select eigenvalues in the middle third of the spectrum,
          as done by Pal and Huse in 10.1103/PhysRevB.82.174411 """
