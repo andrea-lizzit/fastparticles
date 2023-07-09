@@ -110,6 +110,77 @@ class OganesyanHuseSampler:
     def size(self):
         """ Number of eigenvalues """
         return operators.SystemSpec(self.n, self.e).N
+
+class BosonOHSampler:
+    """
+    Generate a matrix representation of a 1-dimensional lattice with nearest- and second-neighbour hopping,
+    as described in 10.1103/PhysRevB.75.155111, but with bosons
+    """
+    def __init__(self, n, W, t=1, V=2, e=None):
+        self.d = 1
+        self.n = n
+        self.W = W
+        self.t = t
+        self.V =  V
+        if e:
+            self.e = e
+        else:
+            self.e = n // 2
+
+    def sample(self):
+        """ Sample a matrix from the ensemble. """
+        w = rng.normal(scale=self.W, size=(self.n,))
+        systemspec = operators.BosonSystemSpec(self.n, self.e)
+        mat = cp.zeros((systemspec.N, systemspec.N))
+        for i in range(systemspec.n):
+            i1 = (i+1) % systemspec.n
+            i2 = (i+2) % systemspec.n
+
+            ni = operators.boson_exchange(i, i, systemspec)
+            ni1 = operators.boson_exchange(i1, i1, systemspec)
+            I = cp.identity(systemspec.N)
+            mat += w[i] * ni
+            mat += self.V * (ni - I*0.5) * (ni1 - I*0.5)
+            mat += operators.boson_exchange(i, i1, systemspec) + operators.boson_exchange(i1, i, systemspec) + operators.boson_exchange(i, i2, systemspec) + operators.boson_exchange(i2, i, systemspec)
+        return mat
+    
+    def eigenvalues(self, mat):
+        """ Eigenvalues of a matrix, sorted in ascending order """
+        return cp.sort(cp.linalg.eigvalsh(mat))
+    
+    @property
+    def size(self):
+        """ Number of eigenvalues """
+        return operators.BosonSystemSpec(self.n, self.e).N
+ 
+class BosonChainSampler:
+    """ Similar to LatticeSampler with d=1 for bosons. """
+    def __init__(self, n, W, t, e, w0=10):
+        self.n = n
+        self.W = W
+        self.t = t
+        self.w0 = w0
+        self.e = e
+
+    def sample(self):
+        systemspec = operators.BosonSystemSpec(self.n, self.e)
+
+        for i in range(self.n):
+            i1 = (i+1) % self.n
+            m += operators.boson_exchange(i, i1, systemspec) + operators.boson_exchange(i1, i, systemspec)
+            m += operators.boson_exchange(i, i, systemspec)
+            m += operators.boson_a4(i, systemspec)
+        return m
+
+    def eigenvalues(self, mat):
+        return cp.linalg.eigvalsh(mat)
+
+    def eig(self, mat):
+        return cp.linalg.eigh(mat)
+
+    @property
+    def size(self):
+        return self.n
     
 
 class CrossoverSampler:
