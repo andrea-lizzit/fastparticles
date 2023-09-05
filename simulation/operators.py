@@ -23,13 +23,13 @@ def combr(n, e):
 class BosonSystemSpec(SystemSpec):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.N = combr(n, e)
+        self.N = combr(self.n, self.e)
         self.statistic = "boson"
 
 class FermionSystemSpec(SystemSpec):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.N = math.comb(n, e)
+        self.N = math.comb(self.n, self.e)
         self.statistic = "fermion"
 
 @cache
@@ -78,13 +78,11 @@ def boson_indexof(exc, n, e):
     while True:
         if len(exc) != e:
             raise ValueError("Wrong number of excitations")
-        if n == e:
-            return count
         if e == 1:
             return count + exc[0]
-        k = qubits[0]
+        k = exc[0]
         count += combr(n, e) - combr(n-k, e)    
-        exc = tuple(q-k for q in qubits[1:])
+        exc = tuple(q-k for q in exc[1:])
         n = n-k
         e = e-1
 
@@ -109,17 +107,24 @@ def boson_exchange(i, j, systemspec):
         raise ValueError("Wrong particle statistic")
     mat = cp.zeros((systemspec.N, systemspec.N))
     available = list(range(systemspec.n))
-    available.remove(i)
     for index in itertools.combinations_with_replacement(available, systemspec.e-1):
         before = boson_indexof(tuple(sorted(index + (j,))), systemspec.n, systemspec.e)
         after = boson_indexof(tuple(sorted(index + (i,))), systemspec.n, systemspec.e)
-        mat[after, before] = 1
+        ni = index.count(i)
+        nj = index.count(j)
+        mat[after, before] = math.sqrt(ni+1)*math.sqrt(nj+1)
     return mat
 
 def boson_a4(i, systemspec):
     """ Representation of the term a_i^\dagger a_i^\dagger a_i a_i."""
+    if systemspec.statistic != "boson":
+        raise ValueError("Wrong particle statistic")
+    if systemspec.e == 1:
+        return 0
+    mat = cp.zeros((systemspec.N, systemspec.N))
+    available = list(range(systemspec.n))
     for index in itertools.combinations_with_replacement(available, systemspec.e-2):
         state_idx = boson_indexof(tuple(sorted(index + (i,i))), systemspec.n, systemspec.e)
-        c = count(i, index) + 2
+        c = index.count(i) + 2
         mat[state_idx, state_idx] = c * (c-1)
     return mat

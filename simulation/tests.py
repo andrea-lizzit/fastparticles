@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
 from studies import ManyBodyLevels
-from matrixensembles import MatrixStats, OganesyanHuseSampler
-from operators import SystemSpec, indexof, exchange
+from matrixensembles import MatrixStats, OganesyanHuseSampler, BosonChainSampler
+from operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof
 import itertools
 import random
-
+import math
 
 def simplestats(r=0):
 	stats = MatrixStats(None)
@@ -28,7 +28,7 @@ class TestManyBody(unittest.TestCase):
 		mbstats = ManyBodyLevels(2)(stats)
 		e = stats.eigenvalues()
 		N, K = e.shape[1], 2
-		n_comb = np.math.factorial(N+K-1)//(np.math.factorial(K)*np.math.factorial(N-1))
+		n_comb = math.factorial(N+K-1)//(math.factorial(K)*math.factorial(N-1))
 		mbe = np.zeros([e.shape[0], n_comb])
 		idx = 0
 		for i in range(10):
@@ -42,21 +42,21 @@ class TestManyBody(unittest.TestCase):
 class TestSpins(unittest.TestCase):
 
 	def test_basis_index(self):
-		systemspec = SystemSpec(4, 2)
+		systemspec = FermionSystemSpec(4, 2)
 		self.assertEqual(indexof((0, 1), systemspec.n, systemspec.e), 0)
 		self.assertEqual(indexof((0, 2), systemspec.n, systemspec.e), 1)
 		self.assertEqual(indexof((1, 3), systemspec.n, systemspec.e), 4)
 
-		systemspec = SystemSpec(5, 4)
+		systemspec = FermionSystemSpec(5, 4)
 		for i, c in enumerate(itertools.combinations(range(systemspec.n), systemspec.e)):
 			self.assertEqual(indexof(c, systemspec.n, systemspec.e), i)
 
-		systemspec = SystemSpec(6, 3)
+		systemspec = FermionSystemSpec(6, 3)
 		for i, c in enumerate(itertools.combinations(range(systemspec.n), systemspec.e)):
 			self.assertEqual(indexof(c, systemspec.n, systemspec.e), i)
 
 	def test_exchange(self):
-		systemspec = SystemSpec(10, 3)
+		systemspec = FermionSystemSpec(10, 3)
 		mat = exchange(9, 6, systemspec).get()
 		v, w = np.zeros((systemspec.N,)), np.zeros((systemspec.N,))
 		v[indexof((3,4,6), systemspec.n, systemspec.e)] = 1
@@ -64,7 +64,7 @@ class TestSpins(unittest.TestCase):
 		self.assertIsNone(np.testing.assert_array_equal(mat@v, w))
 
 	def test_exchange_auto(self):
-		systemspec = SystemSpec(10, 3)
+		systemspec = FermionSystemSpec(10, 3)
 		for i, j in np.ndindex(systemspec.n, systemspec.n):
 			mat = exchange(i, j, systemspec).get()
 			choices = list(range(systemspec.n))
@@ -77,13 +77,27 @@ class TestSpins(unittest.TestCase):
 			w[indexof(tuple(sorted((i, k, l))), systemspec.n, systemspec.e)] = 1
 			self.assertIsNone(np.testing.assert_array_equal(mat@v, w))
 
+class TestBosonExchange(unittest.TestCase):
+	def test_exchange(self):
+		systemspec = BosonSystemSpec(10, 3)
+		for i, j in np.ndindex(systemspec.n, systemspec.n):
+			mat = boson_exchange(i, j, systemspec).get()
+			choices = list(range(systemspec.n))
+			k, l = random.sample(choices, k=2)
+			v, w = np.zeros((systemspec.N,)), np.zeros((systemspec.N,))
+			v[boson_indexof(tuple(sorted((j, k, l))), systemspec.n, systemspec.e)] = 1
+			w[boson_indexof(tuple(sorted((i, k, l))), systemspec.n, systemspec.e)] = 1
+			a = mat@v
+			a /= np.linalg.norm(a)
+			b = w / np.linalg.norm(w)
+			self.assertTrue(np.allclose(a, b))
 
 class TestSampler(unittest.TestCase):
 
 	def test_oganesyanhusesampler(self):
 		n, e = 13, 2
 		sampler = OganesyanHuseSampler(n, 0, e=e)
-		systemspec = SystemSpec(n, e)
+		systemspec = FermionSystemSpec(n, e)
 		H = sampler.sample().get()
 		for m in range(n):
 			m1 = (m+1) % n
@@ -95,6 +109,26 @@ class TestSampler(unittest.TestCase):
 				exp = state @ H @ state
 				reference = sampler.V*(0.25*systemspec.n-1)
 				self.assertAlmostEqual(exp, reference, delta=1e-10)
+
+class TestBosons(unittest.TestCase):
+	def test_bosonchain(self):
+		n = 10
+		sampler = BosonChainSampler(n, 1, 2, e=1)
+		matrixstats = MatrixStats(sampler)
+		matrixstats.collect(10)
+		v = matrixstats.eigenvalues()
+		for e in range(2, 2):
+			with self.subTest(e=e):
+				sampler2 = BosonChainSampler(n, 1, 2, e=e)
+				matrixstats2 = MatrixStats(sampler2)
+				matrixstats2.collect(10)
+				v2 = matrixstats2.eigenvalues()
+				v2_independent = np.zeros_like(v2)
+				for i, c in enumerate(itertools.combinations_with_replacement(range(n), e)):
+					v2_independent[:, i] = np.sum(v[:, c], axis=1)
+				v2_independent = np.sort(v2_independent, axis=1)
+				self.assertIsNone(np.testing.assert_array_almost_equal(v2, v2_independent, decimal=10))
+
 
 
 if __name__=="__main__":
