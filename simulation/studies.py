@@ -18,7 +18,11 @@ class ManyBodyBosons:
         self.n_excitations = n_excitations
 
     def __call__(self, stats):
-        e, V = stats.eigenvalues(), stats.eigenvectors()
+        e = stats.eigenvalues()
+        try:
+            V = stats.eigenvectors()
+        except ValueError:
+            V = None
         K = self.n_excitations
         if K is None:
             # Default to a half filled system
@@ -26,12 +30,12 @@ class ManyBodyBosons:
             # https://doi.org/10.1103/PhysRevB.75.155111
             K = len(e[0])//2
         N = e.shape[1]
-        # Consider all possible nex-particle excitations
+        # Consider all possible K-particle excitations
         # Their number is the binomial coefficient (K+N-1, K)
         num_comb = scipy.special.comb(N+K-1, K, exact=True)
         n_e_energies = np.zeros((e.shape[0], num_comb))
         for i, combination in enumerate(tqdm(itertools.combinations(np.arange(N+K-1), N-1), total=num_comb)):
-            # Convert the combination to the number of excitations in each mode
+            # Convert the combination to the second-quantized vector
             assert len(combination) == N-1
             c = [-1] + list(combination) + [K+N-1]
             b = np.diff(c) - 1
@@ -59,6 +63,13 @@ class ManyBodyLevels(ManyBodyBosons):
         self.K = K
 
     def get_energy(self, e, b, V=None):
+        """ Get the energy of the many-body state b.
+
+        Arguments:
+            e: vector of energies of the single-particle states
+            b: vector of occupation numbers of the single-particle states
+            V: matrix whose columns are the eigenvectors of the Hamiltonian, i.e. the first-quantization single-particle eigenstates
+        """
         if self.K != 0 and V is None:
             raise ValueError("V must be specified when K is not zero")
         N = e.shape[1]
@@ -66,10 +77,11 @@ class ManyBodyLevels(ManyBodyBosons):
         E = np.sum(e * b, axis=1)
         # add perturbation
         # E += self.K * np.sum(e * (b*(b-1)), axis=1) # this perturbation is wrong, because it is in the b basis instead of the a basis
-        E += self.K * np.sum((V**4) @ (b*(b-1)), axis=1)
-        Vi2 = np.sum(V**2, axis=1)
-        for (alpha, beta) in itertools.combinations(range(N), 2):
-            E += self.K * 4 * Vi2[:, alpha] * Vi2[:, beta] * b[alpha] * b[beta]
+        if self.K == 0:
+            return E
+        E -= self.K * np.sum((V**4) @ (b*(b+1)), axis=1)
+        V2 = V**2
+        E += 2*self.K * np.einsum('rij,rik,j,k->r', V2, V2, b, b)
         return E
     
 
@@ -86,6 +98,8 @@ class CrossDiagonal(ManyBodyBosons):
         N = e.shape[1]
         # Calculate the energy of the excited state
         E = np.sum(e * b, axis=1)
+        if self.K == 0:
+            return E
         # add perturbation
         # check if there is space on GPU
         free_bytes = mempool.free_bytes()
