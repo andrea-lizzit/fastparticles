@@ -6,6 +6,7 @@ from operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexo
 import itertools
 import random
 import math
+from tqdm import trange
 
 def simplestats(r=0):
 	stats = MatrixStats(None)
@@ -91,6 +92,23 @@ class TestBosonExchange(unittest.TestCase):
 			a /= np.linalg.norm(a)
 			b = w / np.linalg.norm(w)
 			self.assertTrue(np.allclose(a, b))
+
+class TestManyBodyStudy(unittest.TestCase):
+	def test_manybody(self):
+		for n in trange(3, 8):
+			for e in range(1, n // 2):
+				with self.subTest(n=n, e=e):
+					W, t = 1, 1
+					sampler = BosonChainSampler(n, W, t, K=0, e=1, rng=np.random.default_rng(42))
+					stats = MatrixStats(sampler)
+					stats.collect(1)
+					study = ManyBodyLevels(e)
+					manybody = study(stats)
+					sampler = BosonChainSampler(n, W, t, K=0, e=e, rng=np.random.default_rng(42))
+					stats = MatrixStats(sampler)
+					stats.collect(1)
+					res = np.testing.assert_allclose(stats.eigenvalues().flatten(), manybody.eigenvalues().flatten())
+					self.assertIsNone(res)
 
 class TestSampler(unittest.TestCase):
 
