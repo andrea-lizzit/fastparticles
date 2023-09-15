@@ -56,7 +56,7 @@ class ManyBodyBosons:
  
 
 class ManyBodyLevels(ManyBodyBosons):
-    """ Study the many body level statistics of the system. """
+    """ Study the many body level statistics of the system with first-order perturbation theory. """
 
     def __init__(self, n_excitations=None, K=0):
         self.n_excitations = n_excitations

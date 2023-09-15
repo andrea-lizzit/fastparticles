@@ -88,7 +88,7 @@ class OganesyanHuseSampler:
     def sample(self):
         """ Sample a matrix from the ensemble. """
         w = rng.normal(scale=self.W, size=(self.n,))
-        systemspec = operators.SystemSpec(self.n, self.e)
+        systemspec = operators.FermionSystemSpec(self.n, self.e)
         mat = cp.zeros((systemspec.N, systemspec.N))
         for i in range(systemspec.n):
             i1 = (i+1) % systemspec.n
@@ -154,22 +154,25 @@ class BosonOHSampler:
         return operators.BosonSystemSpec(self.n, self.e).N
  
 class BosonChainSampler:
-    """ Similar to LatticeSampler with d=1 for bosons. """
-    def __init__(self, n, W, t, e, w0=10):
+    """ Similar to LatticeSampler with d=1 for bosons. The calculation is exact. """
+    def __init__(self, n, W, t, K=0, e=None, w0=10, rng=None):
         self.n = n
         self.W = W
         self.t = t
         self.w0 = w0
-        self.e = e
+        self.e = e if e else n//2
+        self.K = K
+        self.rng = rng if rng else np.random.default_rng()
 
     def sample(self):
         systemspec = operators.BosonSystemSpec(self.n, self.e)
-
+        w = self.rng.normal(scale=self.W, size=(self.n,))
+        m = cp.zeros((systemspec.N, systemspec.N))
         for i in range(self.n):
             i1 = (i+1) % self.n
-            m += operators.boson_exchange(i, i1, systemspec) + operators.boson_exchange(i1, i, systemspec)
-            m += operators.boson_exchange(i, i, systemspec)
-            m += operators.boson_a4(i, systemspec)
+            m += self.t*operators.boson_exchange(i, i1, systemspec) + self.t*operators.boson_exchange(i1, i, systemspec)
+            m += (self.w0 + w[i]) * operators.boson_exchange(i, i, systemspec)
+            m += self.K*operators.boson_a4(i, systemspec)
         return m
 
     def eigenvalues(self, mat):
@@ -344,7 +347,8 @@ class MatrixStats:
         mask = mask[0]
         res = np.diff(e[:, mask], axis=1)
         if np.any(res < 0):
-            raise ValueError("Eigenvalues are not sorted")
+            print("Warning: the eigenvalues are not sorted. This might also mean that there are degenerate eigenvalues, when they are not expected.")
+            raise ValueError("Eigenvalues are not sorted.")
         return res
 
     @cache

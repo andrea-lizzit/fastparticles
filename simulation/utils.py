@@ -1,6 +1,6 @@
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 def poissonweights(heights, norm=1):
 	sigma = np.sqrt(heights/norm)
@@ -40,3 +40,15 @@ def errorhist(ax, values, **kwargs):
 
 	# add a grid of very light gray color
 	ax.grid(color='0.95', linestyle='-', linewidth=1)
+
+def bosonmatplot(systemspec, mat=None):
+	w = np.linalg.eigvalsh(mat)
+	print("E: ", " ".join([f"{ww:.4g}" for ww in w.flatten()]))
+	print("S: ", " ".join([f"{ww:.4g}" for ww in np.diff(w).flatten()]), "\n")
+	available = list(range(systemspec.n))
+	states_i = itertools.combinations_with_replacement(available, systemspec.e)
+	for row, state_i in zip(mat, states_i):
+		state = np.zeros(systemspec.n, dtype=int)
+		for i in state_i:
+			state[i] += 1
+		print(" ".join([f"{v:.4g}" for v in row]), " ; ", " ".join([f"{v:d}" for v in state]))
