@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from studies import ManyBodyLevels
 from matrixensembles import MatrixStats, OganesyanHuseSampler, BosonChainSampler
-from operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof
+from operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
 import itertools
 import random
 import math
@@ -92,6 +92,22 @@ class TestBosonExchange(unittest.TestCase):
 			a /= np.linalg.norm(a)
 			b = w / np.linalg.norm(w)
 			self.assertTrue(np.allclose(a, b))
+
+class TestBosonOperators(unittest.TestCase):
+	def test_quartic(self):
+		systemspec = BosonSystemSpec(10, 6)
+		for test_iter in range(20):
+			state = random.choices(range(systemspec.n), k=systemspec.e)
+			state = tuple(sorted(state))
+			state_coord = np.zeros((systemspec.N,))
+			state_coord[boson_indexof(state, systemspec.n, systemspec.e)] = 1
+			i = random.randint(0, systemspec.n-1)
+			num_exc = state.count(i)
+			print(f"state={state}, i={i}, num_exc={num_exc}")
+			val = num_exc * (num_exc-1)
+			operator = boson_a4(i, systemspec).get()
+			self.assertIsNone(np.testing.assert_allclose(operator @ state_coord, state_coord * val))
+			
 
 class TestManyBodyStudy(unittest.TestCase):
 	def test_manybody(self):
