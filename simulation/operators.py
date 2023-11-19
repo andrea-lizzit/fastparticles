@@ -52,7 +52,17 @@ def indexofr(qubits, n, e):
 
 @cache
 def indexof(qubits, n, e):
-    """ Index in the basis of the state with excited qubits in the given positions. """
+    """[summary]
+    Index in the basis of the state with excited qubits in the given positions.
+     
+    ### Parameters
+    1. qubits : tuple
+        - *Must be sorted* in ascending order
+    2. n: int
+        - total number of qubits
+    3. e: int
+        - number of excited qubits
+    """
     # disable when not debugging
     # it is a relatively expensive check in a time-critical piece of code
     # if not np.all(np.diff(qubits) >= 0):
@@ -73,7 +83,17 @@ def indexof(qubits, n, e):
 
 @cache
 def boson_indexof(exc, n, e):
-    """ Index in the basis of the state with the given excitations """
+    """[summary]
+    Index in the basis of the state with excited qubits in the given positions.
+     
+    ### Parameters
+    1. qubits : tuple
+        - *Must be sorted* in ascending order
+    2. n: int
+        - total number of qubits
+    3. e: int
+        - number of excited qubits
+    """
     count = 0
     while True:
         if len(exc) != e:
@@ -128,3 +148,14 @@ def boson_a4(i, systemspec):
         c = index.count(i) + 2
         mat[state_idx, state_idx] = c * (c-1)
     return mat
+
+def Z(i, systemspec):
+    """ Representation of the Z_i operator in an n-qubit system in the e-particle basis. """
+    if systemspec.e > systemspec.n:
+        raise ValueError("The number of particles cannot be higher than the number of qubits")
+    diag = cp.zeros(systemspec.N)
+    available = list(range(systemspec.n))
+    for index in itertools.combinations(available, systemspec.e):
+        state_index = indexof(tuple(sorted(index)), systemspec.n, systemspec.e)
+        diag[state_index] = 1 if i in index else -1
+    return cp.diag(diag)
