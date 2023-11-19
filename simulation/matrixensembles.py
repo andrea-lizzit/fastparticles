@@ -6,6 +6,8 @@ from studies import ManyBodyLevels
 import operators
 from typing import Union
 from functools import cache
+import math
+
 
 rng = np.random.default_rng()
 
@@ -185,6 +187,39 @@ class BosonChainSampler:
     def size(self):
         return self.n
     
+class NNBosonXXZ:
+    def __init__(self, n, W, t, J1, J2, e=None, w0=100, rng=None):
+        self.n = n
+        self.W = W
+        self.t = t
+        self.w0 = w0
+        self.e = e if e else n//2
+        self.J1 = J1
+        self.J2 = J2
+        self.rng = rng if rng else np.random.default_rng()
+
+    def sample(self):
+        systemspec = operators.BosonSystemSpec(self.n, self.e)
+        w = self.rng.normal(scale=self.W, size=(self.n,))
+        m = cp.zeros((systemspec.N, systemspec.N))
+        for i in range(self.n):
+            i1 = (i+1) % self.n
+            i2 = (i+2) % self.n
+            m += self.t*operators.boson_exchange(i, i1, systemspec) + self.t*operators.boson_exchange(i1, i, systemspec)
+            m += (self.w0 + w[i]) * operators.boson_exchange(i, i, systemspec)
+            m += self.J1 * operators.exchange(i, i, systemspec) * operators.exchange(i1, i1, systemspec)
+            m += self.J2 * operators.exchange(i, i, systemspec) * operators.exchange(i2, i2, systemspec)
+        return m
+
+    def eigenvalues(self, mat):
+        return cp.linalg.eigvalsh(mat)
+
+    def eig(self, mat):
+        return cp.linalg.eigh(mat)
+
+    @property
+    def size(self):
+        return self.n
 
 class CrossoverSampler:
     """
@@ -290,12 +325,20 @@ class Betasampler:
         """ Number of eigenvalues """
         return self.N
 
-
 class MatrixStats:
     def __init__(self, sampler):
         self.sampler = sampler
         self.eigenvalues_ = []
         self.eigenvectors_ = []
+
+    @classmethod
+    def from_data(cls, eigenvalues, eigenvectors=None):
+        stats = cls(None)
+        stats.eigenvalues_ = np.reshape(eigenvalues, (1, 1, -1))
+        stats.eigenvalues_ = np.sort(stats.eigenvalues_, axis=2)
+        if eigenvectors is not None:
+            raise NotImplementedError("eigenvectors not implemented")
+        return stats
 
     def collect(self, n_points : Union[int, None] = None, n_realizations=None, eigenvectors=False):
         """ Collect samples from the ensemble """
@@ -365,6 +408,41 @@ class MatrixStats:
         dn, dnm1 = delta[:, :-1], delta[:, 1:]
         r = np.minimum(dn, dnm1) / np.maximum(dn, dnm1)
         return r
+
+class XXZ(MatrixStats):
+    def __init__(self, phi, J1, J2, systemspec):
+        self.systemspec = systemspec
+        self.phi = phi
+        self.J1 = J1
+        self.J2 = J2
+        self.eigenvalues_ = []
+        self.eigenvectors_ = []
+
+    def matrix_(self):
+        mat = cp.zeros((self.systemspec.N, self.systemspec.N), dtype=cp.complex64)
+        phase = np.exp(1j*self.phi/self.systemspec.n)
+        for i in range(self.systemspec.n-1):
+            mat += 1/2 * phase * operators.exchange(i+1, i, self.systemspec)
+            mat += 1/2 * np.conj(phase) * operators.exchange(i, i+1, self.systemspec)
+            mat += self.J1 * operators.Z(i, self.systemspec) * operators.Z(i+1, self.systemspec)
+        if self.J2 != 0:
+            for i in range(self.systemspec.n-2):
+                mat += self.J2 * operators.Z(i, self.systemspec) * operators.Z(i+2, self.systemspec)
+        return mat
+
+    def sample(self):
+        raise RuntimeError("This matrix is not stochastic, cannot sample.")
+
+    def collect(self, eigenvectors=False):
+        """ Collect samples from the ensemble """
+        mat = self.matrix_()
+        if eigenvectors:
+            raise NotImplementedError("eigenvectors not implemented due to issues with sorting")
+            w, v = cp.linalg.eigh(mat)
+            self.eigenvalues_.append(w)
+            self.eigenvectors_.append(v)
+        else:
+            self.eigenvalues_.append(cp.sort(cp.linalg.eigvalsh(mat)))
 
 
 def PalHuseSelector(eigenvalues):
