@@ -10,6 +10,14 @@ class HarmonicOscillator:
     def __call__(self, excitations):
         return excitations
 
+class ExactManyBody:
+    """ Calculate the many body eigenvalues exactly. """
+    def __init__(self, n_excitations, K):
+        self.n_excitations = n_excitations
+        if self.n_excitations <= (npart:=(len(K.shape)//2)):
+            raise ValueError(f"The interaction Hamiltonian considers interactions between {npart} particles, but only {self.n_excitations} were specified.")
+        self.K = K
+    
 
 class ManyBodyBosons:
     """ Study the many body level statistics of the system. """
@@ -17,7 +25,7 @@ class ManyBodyBosons:
     def __init__(self, n_excitations=None):
         self.n_excitations = n_excitations
 
-    def __call__(self, stats):
+    def __call__(self, stats, sort=True):
         e = stats.eigenvalues()
         try:
             V = stats.eigenvectors()
@@ -46,12 +54,14 @@ class ManyBodyBosons:
         free_bytes = mempool.free_bytes()
         if n_e_energies.nbytes < free_bytes:
             mbstats.eigenvalues_ = cp.array(n_e_energies)
-            mbstats.eigenvalues_.sort()
+            if sort:
+                mbstats.eigenvalues_.sort()
             mbstats.eigenvalues_ = mbstats.eigenvalues_.get()
         else:
             print("Warning: not enough memory on GPU to sort the eigenvalues. Falling back to CPU.")
             mbstats.eigenvalues_ = n_e_energies
-            mbstats.eigenvalues_.sort()
+            if sort:
+                mbstats.eigenvalues_.sort()
         return mbstats
  
 
