@@ -200,7 +200,7 @@ class NNBosonXXZ:
 
     def sample(self):
         systemspec = operators.BosonSystemSpec(self.n, self.e)
-        w = self.rng.normal(scale=self.W, size=(self.n,))
+        w = self.rng.uniform(low=-self.W/2, high=self.W/2, size=(self.n,))
         m = cp.zeros((systemspec.N, systemspec.N))
         for i in range(self.n):
             i1 = (i+1) % self.n
