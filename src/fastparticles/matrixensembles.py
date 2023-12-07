@@ -2,8 +2,8 @@ import numpy as np
 import cupy as cp # 4.9x speedup
 from scipy.linalg import eigvalsh_tridiagonal
 from tqdm import trange
-from studies import ManyBodyLevels
-import operators
+from .studies import ManyBodyLevels
+from .operators import operators
 from typing import Union
 from functools import cache
 import math
