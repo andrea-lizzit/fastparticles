@@ -185,7 +185,7 @@ class BosonChainSampler:
 
     @property
     def size(self):
-        return self.n
+        return operators.BosonSystemSpec(self.n, self.e).N
     
 class NNBosonXXZ:
     def __init__(self, n, W, t, J1, J2, e=None, w0=100, rng=None):
@@ -219,7 +219,7 @@ class NNBosonXXZ:
 
     @property
     def size(self):
-        return self.n
+        return operators.BosonSystemSpec(self.n, self.e).N
 
 class CrossoverSampler:
     """
@@ -351,7 +351,7 @@ class MatrixStats:
         if n_realizations:
             n_samples = n_realizations
         else:
-            n_samples = max(n_points // self.sampler.size, 1)
+            n_samples = (n_points + self.sampler.size-2) // (self.sampler.size-1)
         for _ in trange(n_samples):
             if eigenvectors:
                 w, v = self.sampler.eig(self.sampler.sample())
@@ -394,12 +394,12 @@ class MatrixStats:
             raise ValueError("Eigenvalues are not sorted.")
         return res
 
-    @cache
+    # @cache
     def s(self, selector=None):
         spacings_ = self.spacings(selector)
-        return spacings_ / np.mean(spacings_)
+        return spacings_ / np.mean(spacings_, axis=1, keepdims=True)
     
-    @cache
+    # @cache
     def d2correlations(self, selector=None):
         """ Calculate the correlations between adjacent spacings
             as in Oganesyan and Huse
@@ -445,10 +445,13 @@ class XXZ(MatrixStats):
             self.eigenvalues_.append(cp.sort(cp.linalg.eigvalsh(mat)))
 
 
-def PalHuseSelector(eigenvalues):
+def PalHuseSelector(eigenvalues, min_size=10):
     """ Select eigenvalues in the middle third of the spectrum,
          as done by Pal and Huse in 10.1103/PhysRevB.82.174411 """
+
     idx = np.arange(eigenvalues.size)
-    l = eigenvalues.size
-    mask = (idx > l/3) & (idx < 2*l/3)
+    l = eigenvalues.size - 1
+    start, end = l/3, 2*l/3
+    start, end = min(start, (l - min_size)/2), max(end, (l + min_size)/2)
+    mask = (idx > start) & (idx < 2*end)    
     return mask
