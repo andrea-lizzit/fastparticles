@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastparticles"
+version = "0.1.0"
+dependencies = ["numpy", "cupy"]
+authors = [
+	{name = "Andrea Lizzit", email = "andrea.lizzit@gmail.com"},
+]
+description = "A fast quantum simulator."
+readme = "README.md"
+keywords = ["quantum", "physics", "simulation"]
+classifiers = [
+  "Programming Language :: Python"
+]
