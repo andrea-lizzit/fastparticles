@@ -156,8 +156,27 @@ class BosonOHSampler:
         return operators.BosonSystemSpec(self.n, self.e).N
  
 class BosonChainSampler:
-    """ Similar to LatticeSampler with d=1 for bosons. The calculation is exact. """
-    def __init__(self, n, W, t, K=0, e=None, w0=10, rng=None):
+    """Simulates a chain of bosons with diagonal interaction. 
+    
+    :param n: number of sites
+    :type n: int
+    :param W: disorder strength
+    :type W: float
+    :param t: hopping strength
+    :type t: float
+    :param K: interaction strength
+    :type K: float, optional
+    :param e: number of particles, defaults to n//2
+    :type e: int, optional
+    :param w0: on-site energy, defaults to 100
+    :type w0: float, optional
+    :param rng: random number generator, defaults to numpy.random.default_rng()
+    :type rng: numpy.random.Generator, optional
+    """
+
+    def __init__(self, n, W, t, K=0, e=None, w0=100, rng=None):
+        """Constructor method
+        """
         self.n = n
         self.W = W
         self.t = t
