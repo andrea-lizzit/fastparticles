@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fastparticles"
 version = "0.1.0"
-dependencies = ["numpy", "cupy"]
+dependencies = ["numpy", "cupy", "scipy", "tqdm"]
 authors = [
 	{name = "Andrea Lizzit", email = "andrea.lizzit@gmail.com"},
 ]
