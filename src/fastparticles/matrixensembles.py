@@ -111,7 +111,7 @@ class OganesyanHuseSampler:
     @property
     def size(self):
         """ Number of eigenvalues """
-        return operators.SystemSpec(self.n, self.e).N
+        return operators.FermionSystemSpec(self.n, self.e).N
 
 class BosonOHSampler:
     """
