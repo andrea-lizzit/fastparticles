@@ -17,6 +17,12 @@ python -m pip install .
 ## Usage example
 Take a look at the [examples](examples/) folder for usage demonstrations.
 
+## Roadmap
+- Better indexing with Lin tables
+- Lanczos methods
+- Choice of computational backends and better dependency management
+- Multi-GPU support
+
 ## License
 
 [GNU AGPLv3](https://choosealicense.com/licenses/agpl-3.0/)
