@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-from studies import ManyBodyLevels
-from matrixensembles import MatrixStats, OganesyanHuseSampler, BosonChainSampler
-from operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
+from fastparticles.studies import ManyBodyLevels
+from fastparticles.matrixensembles import MatrixStats, OganesyanHuseSampler, BosonChainSampler
+from fastparticles.operators.operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
 import itertools
 import random
 import math

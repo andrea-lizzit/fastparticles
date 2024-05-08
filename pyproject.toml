@@ -15,3 +15,8 @@ keywords = ["quantum", "physics", "simulation"]
 classifiers = [
   "Programming Language :: Python"
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
