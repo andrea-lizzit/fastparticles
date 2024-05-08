@@ -14,6 +14,9 @@ Install the python package with [pip](https://pip.pypa.io/en/stable/)
 cd fastparticles
 python -m pip install .
 ```
+## Usage example
+Take a look at the [examples](examples/) folder for usage demonstrations.
+
 ## License
 
 [GNU AGPLv3](https://choosealicense.com/licenses/agpl-3.0/)
