@@ -1,8 +1,10 @@
 import unittest
 import numpy as np
-from fastparticles.studies import ManyBodyLevels
-from fastparticles.matrixensembles import MatrixStats, OganesyanHuseSampler, BosonChainSampler
-from fastparticles.operators.operators import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
+from fastparticles.statistics.studies import ManyBodyLevels
+from fastparticles.statistics import MatrixStats
+from fastparticles.operators import BosonChainSampler, OganesyanHuseSampler
+from fastparticles.indexing import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
+from fastparticles.hilbert import BosonHilbertSpace, FermionHilbertSpace
 import itertools
 import random
 import math
@@ -114,13 +116,15 @@ class TestManyBodyStudy(unittest.TestCase):
 		for n in trange(3, 8):
 			for e in range(1, n // 2):
 				with self.subTest(n=n, e=e):
+					hs1 = BosonHilbertSpace(n, 1)
 					W, t = 1, 1
-					sampler = BosonChainSampler(n, W, t, K=0, e=1, rng=np.random.default_rng(42))
+					sampler = BosonChainSampler(hs1, W, t, K=0, rng=np.random.default_rng(42))
 					stats = MatrixStats(sampler)
 					stats.collect(1)
 					study = ManyBodyLevels(e)
 					manybody = study(stats)
-					sampler = BosonChainSampler(n, W, t, K=0, e=e, rng=np.random.default_rng(42))
+					hse = BosonHilbertSpace(n, e)
+					sampler = BosonChainSampler(hse, W, t, K=0, rng=np.random.default_rng(42))
 					stats = MatrixStats(sampler)
 					stats.collect(1)
 					res = np.testing.assert_allclose(stats.eigenvalues().flatten(), manybody.eigenvalues().flatten())
@@ -130,30 +134,32 @@ class TestSampler(unittest.TestCase):
 
 	def test_oganesyanhusesampler(self):
 		n, e = 13, 2
-		sampler = OganesyanHuseSampler(n, 0, e=e)
-		systemspec = FermionSystemSpec(n, e)
+		hs = FermionHilbertSpace(n, e)
+		sampler = OganesyanHuseSampler(hs, 0)
 		H = sampler.sample().get()
 		for m in range(n):
 			m1 = (m+1) % n
 			if m1 < m:
 				m, m1 = m1, m
 			with self.subTest(m=m, m1=m1):
-				state = np.zeros((systemspec.N,))
-				state[indexof((m, m1), systemspec.n, systemspec.e)] = 1
+				state = np.zeros((hs.dim,))
+				state[indexof((m, m1), hs.N, hs.e)] = 1
 				exp = state @ H @ state
-				reference = sampler.V*(0.25*systemspec.n-1)
+				reference = sampler.V*(0.25*hs.N-1)
 				self.assertAlmostEqual(exp, reference, delta=1e-10)
 
 class TestBosons(unittest.TestCase):
 	def test_bosonchain(self):
 		n = 10
-		sampler = BosonChainSampler(n, 1, 2, e=1)
+		hs1 = BosonHilbertSpace(n, 1)
+		sampler = BosonChainSampler(hs1, 1, 2)
 		matrixstats = MatrixStats(sampler)
 		matrixstats.collect(10)
 		v = matrixstats.eigenvalues()
 		for e in range(2, 2):
 			with self.subTest(e=e):
-				sampler2 = BosonChainSampler(n, 1, 2, e=e)
+				hse = BosonHilbertSpace(n, e)
+				sampler2 = BosonChainSampler(hse, 1, 2)
 				matrixstats2 = MatrixStats(sampler2)
 				matrixstats2.collect(10)
 				v2 = matrixstats2.eigenvalues()

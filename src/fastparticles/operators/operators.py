@@ -1,161 +1,74 @@
-import numpy as np
+from fastparticles.hilbert.abstract_hilbert import HilbertSpace
+from abc import ABC, abstractmethod
 import cupy as cp
-import math
-from copy import copy
-from collections import namedtuple
-import itertools
-from functools import cache
+from functools import reduce
+import numbers
 
-class SystemSpec:
-    def __init__(self, n, e):
-        self.n = n
-        self.e = e
-
-    def remake(self, **kwargs):
-        spec = copy(self)
-        for key, value in kwargs.items():
-            setattr(spec, key, value)
-        return spec
-
-def combr(n, e):
-    return math.comb(n+e-1, e)
-
-class BosonSystemSpec(SystemSpec):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.N = combr(self.n, self.e)
-        self.statistic = "boson"
-
-class FermionSystemSpec(SystemSpec):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.N = math.comb(self.n, self.e)
-        self.statistic = "fermion"
-
-@cache
-def indexofr(qubits, n, e):
-    """ Index in the basis of the state with excited qubits in the given positions. Recursive implementation: faster, but might run out of cache. """
-    # disable when not debugging
-    # it is a relatively expensive check in a time-critical piece of code
-    # if not np.all(np.diff(qubits) >= 0):
-    #     raise ValueError("Array is not sorted")
-    if len(qubits) != e:
-        raise ValueError("Wrong number of excited qubits")
-    if n == e:
-        return 0
-    if e == 1:
-        return qubits[0]
-    k = qubits[0]
-    count = math.comb(n, e) - math.comb(n - k, e)
-    newqubits = tuple(q-k-1 for q in qubits[1:])
-    return count + indexof(newqubits, n-k-1, e-1)
-
-@cache
-def indexof(qubits, n, e):
-    """[summary]
-    Index in the basis of the state with excited qubits in the given positions.
-     
-    ### Parameters
-    1. qubits : tuple
-        - *Must be sorted* in ascending order
-    2. n: int
-        - total number of qubits
-    3. e: int
-        - number of excited qubits
-    """
-    # disable when not debugging
-    # it is a relatively expensive check in a time-critical piece of code
-    # if not np.all(np.diff(qubits) >= 0):
-    #     raise ValueError("Array is not sorted")
-    count = 0
-    while True:
-        if len(qubits) != e:
-            raise ValueError("Wrong number of excited qubits")
-        if n == e:
-            return count
-        if e == 1:
-            return count + qubits[0]
-        k = qubits[0]
-        count += math.comb(n, e) - math.comb(n - k, e)
-        qubits = tuple(q-k-1 for q in qubits[1:])
-        n = n-k-1
-        e = e-1
-
-@cache
-def boson_indexof(exc, n, e):
-    """[summary]
-    Index in the basis of the state with excited qubits in the given positions.
-     
-    ### Parameters
-    1. qubits : tuple
-        - *Must be sorted* in ascending order
-    2. n: int
-        - total number of qubits
-    3. e: int
-        - number of excited qubits
-    """
-    count = 0
-    while True:
-        if len(exc) != e:
-            raise ValueError("Wrong number of excitations")
-        if e == 1:
-            return count + exc[0]
-        k = exc[0]
-        count += combr(n, e) - combr(n-k, e)    
-        exc = tuple(q-k for q in exc[1:])
-        n = n-k
-        e = e-1
-
-def exchange(i, j, systemspec):
-    """ Representation of the a_i^\dagger*a_j operator in an n-qubit system in the e-particle basis. """
-    if systemspec.e > systemspec.n:
-        raise ValueError("The number of particles cannot be higher than the number of qubits")
-    mat = cp.zeros((systemspec.N, systemspec.N))
-    available = list(range(systemspec.n))
-    available.remove(i)
-    if i != j:
-        available.remove(j)
-    for index in itertools.combinations(available, systemspec.e-1):
-        before = indexof(tuple(sorted(index + (j,))), systemspec.n, systemspec.e)
-        after = indexof(tuple(sorted(index + (i,))), systemspec.n, systemspec.e)
-        mat[after, before] = 1
-    return mat
-    
-def boson_exchange(i, j, systemspec):
-    """ Representation of the a_i^\dagger*a_j operator in an n-oscillator system in the e-particle basis. """
-    if systemspec.statistic != "boson":
-        raise ValueError("Wrong particle statistic")
-    mat = cp.zeros((systemspec.N, systemspec.N))
-    available = list(range(systemspec.n))
-    for index in itertools.combinations_with_replacement(available, systemspec.e-1):
-        before = boson_indexof(tuple(sorted(index + (j,))), systemspec.n, systemspec.e)
-        after = boson_indexof(tuple(sorted(index + (i,))), systemspec.n, systemspec.e)
-        ni = index.count(i)
-        nj = index.count(j)
-        mat[after, before] = math.sqrt(ni+1)*math.sqrt(nj+1)
-    return mat
-
-def boson_a4(i, systemspec):
-    """ Representation of the term a_i^\dagger a_i^\dagger a_i a_i."""
-    if systemspec.statistic != "boson":
-        raise ValueError("Wrong particle statistic")
-    if systemspec.e == 1:
-        return 0
-    mat = cp.zeros((systemspec.N, systemspec.N))
-    available = list(range(systemspec.n))
-    for index in itertools.combinations_with_replacement(available, systemspec.e-2):
-        state_idx = boson_indexof(tuple(sorted(index + (i,i))), systemspec.n, systemspec.e)
-        c = index.count(i) + 2
-        mat[state_idx, state_idx] = c * (c-1)
-    return mat
-
-def Z(i, systemspec):
-    """ Representation of the Z_i operator in an n-qubit system in the e-particle basis. """
-    if systemspec.e > systemspec.n:
-        raise ValueError("The number of particles cannot be higher than the number of qubits")
-    diag = cp.zeros(systemspec.N)
-    available = list(range(systemspec.n))
-    for index in itertools.combinations(available, systemspec.e):
-        state_index = indexof(tuple(sorted(index)), systemspec.n, systemspec.e)
-        diag[state_index] = 1 if i in index else -1
-    return cp.diag(diag)
+class Operator(ABC):
+	def __init__(self, hs: HilbertSpace):
+		self.hs = hs
+	@abstractmethod
+	def matrix(self):
+		pass
+	def __call__(self, psi, phi):
+		pass
+	def __add__(self, op):
+		if isinstance(op, Operator):
+			return OperatorSum(self.hs, [self, op])
+		if isinstance(op, numbers.Number):
+			op = ScalarOperator(self.hs, op)
+			return OperatorSum(self.hs, [self, op])
+		raise ValueError(f"Operator addition not supported for type {type(op)}")
+	def __radd__(self, op):
+		return self + op
+	def __rmul__(self, op):
+		return self * op
+	def __mul__(self, op):
+		if isinstance(op, Operator):
+			return OperatorProduct(self.hs, [self, op])
+		if isinstance(op, numbers.Number):
+			op = ScalarOperator(self.hs, op)
+			return OperatorProduct(self.hs, [self, op])
+		raise ValueError(f"Operator multiplication not supported for type {type(op)}")
+	def __sub__(self, op):
+		return self + (-op)
+	def __rsub__(self, op):
+		return -self + op
+	def __neg__(self):
+		return -1 * self
+	@property
+	def size(self):
+		""" Defined for backward compatibility. """
+		return self.hs.dim
+	def sample(self):
+		""" Defined for backward compatibility. """
+		return self.matrix()
+	
+class OperatorSum(Operator):
+	def __init__(self, hs: HilbertSpace, ops: list[Operator]):
+		super().__init__(hs)
+		self.ops = ops
+	def matrix(self):
+		return reduce(cp.add, [op.matrix() for op in self.ops])
+	def __call__(self, psi, phi):
+		return sum(op(psi, phi) for op in self.ops)
+	
+class OperatorProduct(Operator):
+	def __init__(self, hs: HilbertSpace, ops: list[Operator]):
+		super().__init__(hs)
+		self.ops = ops
+	def matrix(self):
+		return reduce(cp.matmul, [op.matrix() for op in self.ops])
+	def __call__(self, psi, phi):
+		raise NotImplementedError("OperatorProduct does not support __call__")
+	
+class ScalarOperator(Operator):
+	def __init__(self, hs: HilbertSpace, scalar):
+		super().__init__(hs)
+		self.scalar = scalar
+	def matrix(self):
+		return cp.eye(self.hs.dim) * self.scalar
+	def __call__(self, psi, phi):
+		if psi == phi:
+			return self.scalar
+		return 0
