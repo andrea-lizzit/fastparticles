@@ -45,7 +45,7 @@ class SpinHilbertSpace(FermionHilbertSpace):
     def __init__(self, N, e, localdim):
         if localdim != 2:
             raise NotImplementedError("Higher spins not implemented yet.")
-        super(FermionHilbertSpace).__init__(N, e)
+        super().__init__(N, e)
     def __eq__(self, other):
         if not isinstance(other, SpinHilbertSpace):
             return False

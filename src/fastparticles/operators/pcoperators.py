@@ -82,6 +82,29 @@ class B4Operator(BPCOperator):
     def matrix(self):
         return boson_a4(self.i, BosonSystemSpec(self.hs.N, self.hs.e))
 
+class SPCOperator(Operator):
+    def __init__(self, hs: SpinHilbertSpace):
+        super().__init__(hs)
+    def __call__(self, psi, phi):
+        raise NotImplementedError("Not implemented yet")
+
+class SExchange(SPCOperator):
+    """ Representation of the \\sigma^+_i\\sigma^-_j operator in an n-spin system in the e-particle basis. """
+    def __init__(self, hs: SpinHilbertSpace, i, j):
+        super().__init__(hs)
+        self.i = i
+        self.j = j
+    def matrix(self):
+        return exchange(self.i, self.j, FermionSystemSpec(self.hs.N, self.hs.e))
+    
+class Sz(SPCOperator):
+    """ Representation of the Pauli \\sigma^z_i operator in an n-spin system in the e-particle basis. """
+    def __init__(self, hs: SpinHilbertSpace, i):
+        super().__init__(hs)
+        self.i = i
+    def matrix(self):
+        return Z(self.i, FermionSystemSpec(self.hs.N, self.hs.e))
+    
 def Z(i, systemspec):
     """ Representation of the Z_i operator in an n-qubit system in the e-particle basis. """
     if systemspec.e > systemspec.n:
