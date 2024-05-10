@@ -203,7 +203,14 @@ class TestFSpins(unittest.TestCase):
 			self.assertIsNone(np.testing.assert_array_almost_equal((sx * sy - sy * sx).matrix().get(), 2j*sz.matrix().get()))
 			self.assertIsNone(np.testing.assert_array_almost_equal((sy * sz - sz * sy).matrix().get(), 2j*sx.matrix().get()))
 			self.assertIsNone(np.testing.assert_array_almost_equal((sz * sx - sx * sz).matrix().get(), 2j*sy.matrix().get()))
-
+	def test_exchange(self):
+		n = 4
+		hs = FSpinHilbertSpace(n, 2)
+		for i in range(n):
+			for j in range(n):
+				exchange = SExchange(hs, i, j)
+				reference = Sp(hs, i) * Sm(hs, j)
+				self.assertIsNone(np.testing.assert_array_almost_equal(exchange.matrix().get(), reference.matrix().get()))
 
 
 if __name__=="__main__":
