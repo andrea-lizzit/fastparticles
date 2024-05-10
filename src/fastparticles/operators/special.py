@@ -14,7 +14,7 @@ class SExchange(SOperator):
         self.i = i
         self.j = j
     def matrix(self):
-        return 4*spin_exchange(self.i, self.j, self.hs.N)
+        return spin_exchange(self.i, self.j, self.hs.N)
     
 class Sz(SOperator):
     def __init__(self, hs: FSpinHilbertSpace, i):

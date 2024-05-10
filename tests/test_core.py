@@ -208,7 +208,7 @@ class TestFSpins(unittest.TestCase):
 		hs = FSpinHilbertSpace(n, 2)
 		for i in range(n):
 			for j in range(n):
-				exchange = SExchange(hs, i, j)
+				exchange = 4*SExchange(hs, i, j)
 				reference = Sp(hs, i) * Sm(hs, j)
 				self.assertIsNone(np.testing.assert_array_almost_equal(exchange.matrix().get(), reference.matrix().get()))
 
