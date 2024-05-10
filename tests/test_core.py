@@ -2,9 +2,9 @@ import unittest
 import numpy as np
 from fastparticles.statistics.studies import ManyBodyLevels
 from fastparticles.statistics import MatrixStats
-from fastparticles.operators import BosonChainSampler, OganesyanHuseSampler
+from fastparticles.operators import BosonChainSampler, OganesyanHuseSampler, Sz, Sx, Sy, Sp, Sm, SExchange
 from fastparticles.indexing import FermionSystemSpec, BosonSystemSpec, boson_exchange, indexof, exchange, boson_indexof, boson_a4
-from fastparticles.hilbert import BosonHilbertSpace, FermionHilbertSpace
+from fastparticles.hilbert import BosonHilbertSpace, FermionHilbertSpace, FSpinHilbertSpace
 import itertools
 import random
 import math
@@ -168,6 +168,41 @@ class TestBosons(unittest.TestCase):
 					v2_independent[:, i] = np.sum(v[:, c], axis=1)
 				v2_independent = np.sort(v2_independent, axis=1)
 				self.assertIsNone(np.testing.assert_array_almost_equal(v2, v2_independent, decimal=10))
+
+class TestFSpins(unittest.TestCase):
+	def test_anticommutation(self):
+		n = 4
+		hs = FSpinHilbertSpace(n, 2)
+		for i in range(n):
+			for j in range(n):
+				if i == j:
+					continue
+				sx, sy, sz = Sx(hs, i), Sy(hs, i), Sz(hs, i)
+				zx, zy, zz = Sx(hs, j), Sy(hs, j), Sz(hs, j)
+				self.assertIsNone(np.testing.assert_array_almost_equal((sx * zx - zx * sx).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sx * zy - zy * sx).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sx * zz - zz * sx).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sy * zx - zx * sy).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sy * zy - zy * sy).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sy * zz - zz * sy).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sz * zx - zx * sz).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sz * zy - zy * sz).matrix().get(), np.zeros((hs.dim, hs.dim))))
+				self.assertIsNone(np.testing.assert_array_almost_equal((sz * zz - zz * sz).matrix().get(), np.zeros((hs.dim, hs.dim))))
+	def test_algebra(self):
+		n = 4
+		hs = FSpinHilbertSpace(n, 2)
+		for i in range(n):
+			sx, sy, sz, sp, sm = Sx(hs, i), Sy(hs, i), Sz(hs, i), Sp(hs, i), Sm(hs, i)
+			self.assertIsNone(np.testing.assert_array_almost_equal((sx * sx).matrix().get(), np.eye(hs.dim)))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sy * sy).matrix().get(), np.eye(hs.dim)))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sz * sz).matrix().get(), np.eye(hs.dim)))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sp * sp).matrix().get(), np.zeros((hs.dim, hs.dim))))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sm * sm).matrix().get(), np.zeros((hs.dim, hs.dim))))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sp * sm + sm * sp).matrix().get(), 4*np.eye(hs.dim)))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sp * sm - sm * sp).matrix().get(), 4*sz.matrix().get()))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sx * sy - sy * sx).matrix().get(), 2j*sz.matrix().get()))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sy * sz - sz * sy).matrix().get(), 2j*sx.matrix().get()))
+			self.assertIsNone(np.testing.assert_array_almost_equal((sz * sx - sx * sz).matrix().get(), 2j*sy.matrix().get()))
 
 
 

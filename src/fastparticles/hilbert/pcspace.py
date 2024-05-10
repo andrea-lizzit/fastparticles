@@ -1,5 +1,5 @@
 from .abstract_hilbert import HilbertSpace
-from fastparticles.indexing import indexof, boson_indexof, combr
+from fastparticles.indexing import indexof, boson_indexof, spin_indexof, combr
 import math
 
 class BosonHilbertSpace(HilbertSpace):
@@ -40,17 +40,39 @@ class FermionHilbertSpace(HilbertSpace):
             return False
         return self.N == other.N and self.e == other.e
     
+def SpinHilbertSpace(*args):
+    if len(args) == 2:
+        return FSpinHilbertSpace(*args)
+    if len(args) == 3:
+        return FPSpinHilbertSpace(*args)
+    raise ValueError("Invalid number of arguments")
 
-class SpinHilbertSpace(FermionHilbertSpace):
+class FPSpinHilbertSpace(FermionHilbertSpace):
     def __init__(self, N, e, localdim):
         if localdim != 2:
             raise NotImplementedError("Higher spins not implemented yet.")
         super().__init__(N, e)
     def __eq__(self, other):
-        if not isinstance(other, SpinHilbertSpace):
+        if not isinstance(other, FPSpinHilbertSpace):
             return False
         return self.N == other.N and self.e == other.e and self.localdim == other.localdim
 
+class FSpinHilbertSpace(HilbertSpace):
+    def __init__(self, N, localdim):
+        if localdim != 2:
+            raise NotImplementedError("Higher spins not implemented yet.")
+        self.N = N
+    def index(self, state):
+        return spin_indexof(state, self.N)
+    def valid(self, state):
+        return self.index(state) < 2**self.N
+    def _dim(self):
+        return 2**self.N
+    def __eq__(self, other):
+        if not isinstance(other, FSpinHilbertSpace):
+            return False
+        return self.N == other.N
+    
 class LinHilbertSpace:
     def build_tables(self):
         pass

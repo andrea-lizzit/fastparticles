@@ -36,6 +36,11 @@ class Operator(ABC):
 		return -self + op
 	def __neg__(self):
 		return -1 * self
+	def __truediv__(self, op):
+		if isinstance(op, numbers.Number):
+			return self * (1/op)
+		raise ValueError(f"Operator division not defined for operators")
+	
 	@property
 	def size(self):
 		""" Defined for backward compatibility. """

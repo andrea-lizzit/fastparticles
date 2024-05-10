@@ -79,6 +79,22 @@ def indexof(qubits, n, e):
         n = n-k-1
         e = e-1
 
+def spin_indexof(qubits):
+    """[summary]
+    Index in the basis of the state.
+     
+    ### Parameters
+    1. state : tuple
+        - Tuple of length n where 1 represents spin up and 0 represents spin down
+    2. n: int
+        - total number of qubits
+    """
+    # convert tuple of ints into little-endian binary number
+    state = 0
+    for i, q in enumerate(qubits):
+        state += q << i
+    return state
+
 @cache
 def boson_indexof(exc, n, e):
     """[summary]
@@ -119,6 +135,63 @@ def exchange(i, j, systemspec):
         after = indexof(tuple(sorted(index + (i,))), systemspec.n, systemspec.e)
         mat[after, before] = 1
     return mat
+
+def spin_exchange(i, j, n):
+    """ Representation of the \\sigma^+_i*\\sigma_j^- / 4 operator in an n-spin system."""
+    N = 2**n
+    mat = cp.zeros((N, N))
+    if i != j:
+        M, m = max(i, j), min(i, j)
+        for c in range(2**(n-2)):
+            small_part = c & ((1 << m) - 1)
+            rest = c - small_part
+            mid_part = rest & ((1 << M-1) - 1)
+            large_part = rest - mid_part
+            before = (large_part << 2) + (mid_part << 1) + small_part
+            # now there are 0 in position i and j
+            after = before + (1 << i) + (0 << j)
+            before = before + (0 << i) + (1 << j)
+            mat[after, before] = 1
+        return mat
+    else:
+        for c in range(2**(n-1)):
+            small_part = c & ((1 << i) - 1)
+            large_part = c - small_part
+            state = (large_part << 1) + (1 << i) + small_part
+            mat[state, state] = 1
+        return mat
+    
+def spin_sigmam(i, n):
+    """ Representation of the \\sigma^-_i operator in an n-spin system."""
+    N = 2**n
+    mat = cp.zeros((N, N))
+    for c in range(2**(n-1)):
+        small_part = c & ((1 << i) - 1)
+        large_part = c - small_part
+        before = (large_part << 1) + (1 << i) + small_part
+        after = (large_part << 1) + (0 << i) + small_part
+        mat[after, before] = 2
+    return mat
+
+def spin_sigmap(i, n):
+    """ Representation of the \\sigma^+_i operator in an n-spin system."""
+    N = 2**n
+    mat = cp.zeros((N, N))
+    for c in range(2**(n-1)):
+        small_part = c & ((1 << i) - 1)
+        large_part = c - small_part
+        before = (large_part << 1) + (0 << i) + small_part
+        after = (large_part << 1) + (1 << i) + small_part
+        mat[after, before] = 2
+    return mat
+
+
+def spin_sigmaz(i, n):
+    """ Representation of the \\sigma^z_i operator in an n-spin system."""
+    stride = 1 << i
+    n_strides = 2**(n - i - 1)
+    d = cp.tile(cp.concatenate([-1*cp.ones(stride), cp.ones(stride)]), n_strides)
+    return cp.diag(d)
 
 def boson_exchange(i, j, systemspec):
     """ Representation of the a_i^\dagger*a_j operator in an n-oscillator system in the e-particle basis. """

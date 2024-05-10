@@ -3,7 +3,7 @@ import math
 import itertools
 from fastparticles.indexing import indexof, boson_indexof
 from .operators import Operator
-from fastparticles.hilbert.pcspace import BosonHilbertSpace, FermionHilbertSpace, SpinHilbertSpace
+from fastparticles.hilbert.pcspace import BosonHilbertSpace, FermionHilbertSpace, FPSpinHilbertSpace
 from fastparticles.indexing import BosonSystemSpec, FermionSystemSpec
 
 def exchange(i, j, systemspec):
@@ -83,23 +83,23 @@ class B4Operator(BPCOperator):
         return boson_a4(self.i, BosonSystemSpec(self.hs.N, self.hs.e))
 
 class SPCOperator(Operator):
-    def __init__(self, hs: SpinHilbertSpace):
+    def __init__(self, hs: FPSpinHilbertSpace):
         super().__init__(hs)
     def __call__(self, psi, phi):
         raise NotImplementedError("Not implemented yet")
 
-class SExchange(SPCOperator):
+class SPCExchange(SPCOperator):
     """ Representation of the \\sigma^+_i\\sigma^-_j operator in an n-spin system in the e-particle basis. """
-    def __init__(self, hs: SpinHilbertSpace, i, j):
+    def __init__(self, hs: FPSpinHilbertSpace, i, j):
         super().__init__(hs)
         self.i = i
         self.j = j
     def matrix(self):
-        return exchange(self.i, self.j, FermionSystemSpec(self.hs.N, self.hs.e))
+        return 4*exchange(self.i, self.j, FermionSystemSpec(self.hs.N, self.hs.e))
     
-class Sz(SPCOperator):
+class SPCz(SPCOperator):
     """ Representation of the Pauli \\sigma^z_i operator in an n-spin system in the e-particle basis. """
-    def __init__(self, hs: SpinHilbertSpace, i):
+    def __init__(self, hs: FPSpinHilbertSpace, i):
         super().__init__(hs)
         self.i = i
     def matrix(self):
